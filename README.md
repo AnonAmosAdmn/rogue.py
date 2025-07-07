@@ -1,5 +1,5 @@
 Download the Game:
-
+git clone https://github.com/AnonAmosAdmn/rogue.py.git
 
 Create a Virtual Environment:
 python -m venv mygame_env

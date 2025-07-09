@@ -46,7 +46,7 @@ pygame.font.init()
 
 # Game settings
 SCREEN_WIDTH, SCREEN_HEIGHT = 2048, 1536
-GRID_SIZE = 32
+GRID_SIZE = 64
 FPS = 60
 
 

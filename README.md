@@ -13,11 +13,11 @@ python -m venv mygame_env
 
 source mygame_env/bin/activate  # Linux/macOS
 
-mygame_env\Scripts\activate     # Windows (CMD)
+mygame_env\Scripts\activate     # Windows
 
 ===============================================================
 
-# Then install Pygame inside it:
+# Then install Pygame:
 
 pip install pygame
 

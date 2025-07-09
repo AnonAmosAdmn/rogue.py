@@ -263,14 +263,17 @@ class Player(Entity):
 
     def level_up(self):
         """Increase player stats when leveling up."""
-        self.level += 1  # Increase level by 1
-        self.max_hp += 5 + self.level  # Increase max HP based on level
-        self.attack += 2 + self.level // 2  # Increase attack (scaling with level)
-        self.defense += 2 + self.level // 3  # Increase defense (scaling with level)
-        self.next_level += 100 * self.level  # Set experience needed for next level
-        self.crit_chance = min(0.3, self.crit_chance + 0.02)  # Slightly increase crit chance (capped at 30%)
+        self.level += 1
+        self.max_hp += 5 + self.level
+        self.attack += 2 + self.level // 2
+        self.defense += 2 + self.level // 3 
+        self.next_level += 100 * self.level
+        self.crit_chance = min(0.3, self.crit_chance + 0.02)
         
-        return f"Level up! You are now level {self.level}!"
+        # Increase agro range in the game by 0.5 per level (rounded up)
+        game.enemy_agro_range = math.ceil(self.level * 0.5)
+        
+        return f"Level up! You are now level {self.level}! Enemies notice you from farther away!"
 
 
 
@@ -303,6 +306,7 @@ class Game:
         self.max_log_entries = 10
         self.wall_color = STONE  # Default
         self.floor_color = DARK_GRAY  # Default
+        self.enemy_agro_range = 1  # Base agro range
         self.generate_dungeon()
     
     
@@ -1081,7 +1085,7 @@ class Game:
             distance = max(abs(dx), abs(dy))  # Chebyshev distance (allows diagonal movement)
             
             # Only move if within agro range
-            if distance > ENEMY_AGRO_RANGE:
+            if distance > game.enemy_agro_range:
                 continue
                 
             # Normalize direction (move 1 step toward player)

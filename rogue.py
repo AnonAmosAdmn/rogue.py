@@ -500,37 +500,78 @@ class Game:
             for x in range(self.map_width):
                 self.tiles[y][x].visible = False
         
-        # Calculate new visibility
-        for y in range(max(0, self.player.y - self.player.vision_radius), 
-                    min(self.map_height, self.player.y + self.player.vision_radius + 1)):
-            for x in range(max(0, self.player.x - self.player.vision_radius), 
-                        min(self.map_width, self.player.x + self.player.vision_radius + 1)):
-                dx = x - self.player.x
-                dy = y - self.player.y
-                distance_squared = dx*dx + dy*dy
+        # Use Bresenham's line algorithm for symmetric FOV
+        radius = self.player.vision_radius
+        cx, cy = self.player.x, self.player.y
+        
+        # Mark player's tile as visible
+        self.tiles[cy][cx].visible = True
+        self.tiles[cy][cx].explored = True
+        
+        # Check all octants for visibility
+        for octant in range(8):
+            self.cast_light(cx, cy, 1, 1.0, 0.0, radius, octant)
+
+    def cast_light(self, cx, cy, row, start_slope, end_slope, radius, octant):
+        if start_slope < end_slope:
+            return
+        
+        radius_squared = radius * radius
+        for j in range(row, radius + 1):
+            dx = -j - 1
+            dy = -j
+            blocked = False
+            
+            while dx <= 0:
+                dx += 1
                 
-                if distance_squared <= self.player.vision_radius ** 2:
-                    # Simple line of sight check
-                    visible = True
-                    steps = max(abs(dx), abs(dy))
+                # Translate coordinates based on octant
+                nx, ny = self.transform_octant(cx, cy, dx, dy, octant)
+                
+                if not (0 <= nx < self.map_width and 0 <= ny < self.map_height):
+                    continue
                     
-                    if steps > 0:
-                        step_x = dx / steps
-                        step_y = dy / steps
+                # Calculate slopes
+                l_slope = (dx - 0.5) / (dy + 0.5)
+                r_slope = (dx + 0.5) / (dy - 0.5)
+                
+                if start_slope < r_slope:
+                    continue
+                elif end_slope > l_slope:
+                    break
+                    
+                # Check if within lightable area
+                if dx*dx + dy*dy < radius_squared:
+                    self.tiles[ny][nx].visible = True
+                    self.tiles[ny][nx].explored = True
+                    
+                if blocked:
+                    # Previous cell was blocking
+                    if self.tiles[ny][nx].type == 0:  # Wall
+                        new_start_slope = r_slope
+                        continue
+                    else:
+                        blocked = False
+                        start_slope = new_start_slope
+                else:
+                    if self.tiles[ny][nx].type == 0 and j < radius:  # Wall
+                        blocked = True
+                        self.cast_light(cx, cy, j + 1, start_slope, l_slope, radius, octant)
+                        new_start_slope = r_slope
                         
-                        for i in range(1, steps):
-                            check_x = int(self.player.x + i * step_x)
-                            check_y = int(self.player.y + i * step_y)
-                            
-                            if (0 <= check_x < self.map_width and 
-                                0 <= check_y < self.map_height):
-                                if self.tiles[check_y][check_x].type == 0:  # Wall
-                                    visible = False
-                                    break
-                    
-                    if visible:
-                        self.tiles[y][x].visible = True
-                        self.tiles[y][x].explored = True
+            if blocked:
+                break
+
+    def transform_octant(self, cx, cy, dx, dy, octant):
+        # Transform coordinates based on octant
+        if octant == 0: return cx + dx, cy + dy
+        if octant == 1: return cx + dy, cy + dx
+        if octant == 2: return cx - dy, cy + dx
+        if octant == 3: return cx - dx, cy + dy
+        if octant == 4: return cx - dx, cy - dy
+        if octant == 5: return cx - dy, cy - dx
+        if octant == 6: return cx + dy, cy - dx
+        if octant == 7: return cx + dx, cy - dy
 
 
 

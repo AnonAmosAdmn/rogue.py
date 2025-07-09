@@ -221,7 +221,7 @@ class Entity:
 class Player(Entity):
     def __init__(self, x, y):
         # Initialize the player using the base Entity constructor with specific values
-        super().__init__(x, y, "@", GREEN, "Player", 30, 8, 5)  # char = "@", color = GREEN, hp = 30, attack = 8, defense = 5
+        super().__init__(x, y, "@", GREEN, "Player", 50, 8, 5)  # char = "@", color = GREEN, hp = 50, attack = 8, defense = 5
         self.level = 1  # Starting level
         self.exp = 0  # Current experience points
         self.next_level = 100  # Experience needed to reach next level
@@ -436,7 +436,7 @@ class Game:
 
 
             # Place items - better items at deeper levels
-            if random.random() < 0.7:  # Increased chance for items (70%)
+            if random.random() < 1:  # Increased chance for items (100%)
                 # Try to find a valid position (up to 10 attempts)
                 attempts = 0
                 placed = False
@@ -690,10 +690,9 @@ class Game:
                 
                 if self.player.hp <= 0:
                     self.player.hp = 0
-                    self.add_message("You have been defeated! Starting new game...")
-                    self.add_to_log("You have been defeated! Starting new game...")
-                    self.__init__()  # This creates a brand new game
-                    return True  # Combat ends because player died
+                    self.game_state = "game_over"  # Set game state to game_over
+                    self.add_message("You have been defeated! Press R to restart")
+                    return True
         
         return False  # Combat continues
 
@@ -865,7 +864,7 @@ class Game:
         
         # Draw health bar centered at bottom
         health_ratio = self.player.hp / self.player.max_hp
-        bar_width = 200
+        bar_width = 400
         bar_height = 24
         
         # Calculate centered position
@@ -1104,17 +1103,13 @@ class Game:
             for event in pygame.event.get():
                 if event.type == QUIT:
                     running = False
-
                 if event.type == KEYDOWN:
-                    if self.game_state == "playing":
-                        if event.key == K_q:
-                            running = False
-                    elif self.game_state == "game_over":
-                        if event.key == K_r:
-                            self.__init__()  # This creates a brand new Player instance
-                            self.game_state = "playing"
-                        elif event.key == K_q:
-                            running = False
+                    if event.key == K_q:
+                        running = False
+                    elif event.key == K_r:
+                        # Create a completely new game instance
+                        game = Game()  # This is the key fix - create new instance
+                        return game.run()  # Start the new game and exit this loop
 
             # Key hold movement (continuous movement)
             if self.game_state == "playing":
@@ -1133,14 +1128,17 @@ class Game:
                         self.move_player(dx, dy)
                         last_move_time = current_time
 
-            if self.game_state == "playing":
-                self.update_camera()
-                self.draw()
-
+            # Always update and draw, regardless of game state
+            self.update_camera()
+            self.draw()
             clock.tick(FPS)
 
         pygame.quit()
         sys.exit()
+
+
+
+
 
 
 # Run the game

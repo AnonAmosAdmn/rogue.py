@@ -252,7 +252,7 @@ class Entity:
 class Player(Entity):
     def __init__(self, x, y):
         # Initialize the player using the base Entity constructor with specific values
-        super().__init__(x, y, "@", GREEN, "Player", 50, 8, 5)  # char = "@", color = GREEN, hp = 50, attack = 8, defense = 5
+        super().__init__(x, y, "@", GREEN, "Player", 100, 8, 5)  # char = "@", color = GREEN, hp = 50, attack = 8, defense = 5
         self.level = 1  # Starting level
         self.exp = 0  # Current experience points
         self.next_level = 100  # Experience needed to reach next level
@@ -260,6 +260,9 @@ class Player(Entity):
         self.crit_chance = 0.1  # 10% chance to deal a critical hit
         self.crit_multiplier = 1.5  # Critical hits deal 1.5x damage
         self.gold = 0  # Add gold tracking
+        self.poisoned = False
+        self.poison_damage = 0
+        self.poison_duration = 0
 
     def level_up(self):
         """Increase player stats when leveling up."""
@@ -441,9 +444,8 @@ class Game:
 
 
 
-
         # Place enemies - more enemies and stronger as dungeon level increases
-        num_enemies = random.randint(0, 2 + self.dungeon_level //2 )  # More enemies at deeper levels
+        num_enemies = random.randint(0, 2 + self.dungeon_level // 2)  # More enemies at deeper levels
         
         enemy_types = ["goblin", "orc", "skeleton", "zombie", "troll", "ghost"]
         enemy_chars = ["g", "o", "s", "z", "T", "G"]
@@ -454,28 +456,76 @@ class Game:
             x = random.randint(room.x + 1, room.x + room.w - 1)
             y = random.randint(room.y + 1, room.y + room.h - 1)
             
-            # Only place if it's a floor and not occupied by player, exit, or other entities
+            # Only place if it's a floor and not occupied
             if (self.tiles[y][x].type == 1 and 
                 not any(e.x == x and e.y == y for e in self.entities) and
                 (x, y) != (self.player.x, self.player.y) and
                 (x, y) != self.exit_pos):
+                
                 enemy_type = random.randint(0, len(enemy_types)-1)
-                
-                # Base stats + scaling with dungeon level
-                hp = random.randint(15, 25) + (self.dungeon_level - 1) * 5  # More HP
-                attack = random.randint(4, 8) + (self.dungeon_level - 1) * 2  # Harder hits
-                defense = random.randint(1, 3) + (self.dungeon_level - 1)  # Better defense
-                exp = random.randint(10, 25) + (self.dungeon_level - 1) * 2
-                
-                # Special abilities for certain enemies
                 special = {}
-                if enemy_types[enemy_type] == "troll":
-                    hp *= 1.5  # Trolls have more HP
-                    special["regeneration"] = True
-                elif enemy_types[enemy_type] == "ghost":
-                    defense += 2  # Ghosts are harder to hit
-                    special["dodge_chance"] = 0.2  # 20% chance to dodge attacks
                 
+                # Base stats for all enemies (will be overridden by specific types)
+                hp = 15 + (self.dungeon_level - 1) * 3
+                attack = 5 + (self.dungeon_level - 1)
+                defense = 1 + (self.dungeon_level - 1)
+                exp = 10 + (self.dungeon_level - 1) * 2
+                
+                # Enemy-specific stats and abilities
+                if enemy_types[enemy_type] == "goblin":
+                    # Fast but weak enemies
+                    hp = random.randint(10, 15) + (self.dungeon_level - 1) * 2
+                    attack = random.randint(3, 6) + (self.dungeon_level - 1)
+                    defense = random.randint(0, 2) + (self.dungeon_level - 1)
+                    exp = random.randint(8, 15) + (self.dungeon_level - 1)
+                    special["double_attack_chance"] = 0.2  # 20% chance to attack twice
+                    
+                elif enemy_types[enemy_type] == "orc":
+                    # Strong warriors with critical hits
+                    hp = random.randint(25, 35) + (self.dungeon_level - 1) * 5
+                    attack = random.randint(6, 10) + (self.dungeon_level - 1) * 2 + 5  # +5 attack bonus
+                    defense = random.randint(2, 4) + (self.dungeon_level - 1)
+                    exp = random.randint(15, 30) + (self.dungeon_level - 1) * 2
+                    special["crit_chance"] = 0.15  # 15% chance to crit
+                    special["crit_multiplier"] = 1.5  # 1.5x damage on crit
+                    
+                elif enemy_types[enemy_type] == "skeleton":
+                    # Fragile but accurate and dodgy
+                    hp = random.randint(12, 18) + (self.dungeon_level - 1) * 2
+                    attack = random.randint(5, 8) + (self.dungeon_level - 1)
+                    defense = random.randint(1, 3) + (self.dungeon_level - 1)
+                    exp = random.randint(10, 20) + (self.dungeon_level - 1)
+                    special["accuracy_bonus"] = 2  # +2 to hit
+                    special["dodge_chance"] = 0.15  # 15% chance to dodge
+                    
+                elif enemy_types[enemy_type] == "zombie":
+                    # Slow but tanky with poison
+                    hp = random.randint(30, 40) + (self.dungeon_level - 1) * 6
+                    attack = random.randint(4, 7) + (self.dungeon_level - 1)
+                    defense = random.randint(3, 5) + (self.dungeon_level - 1)
+                    exp = random.randint(12, 22) + (self.dungeon_level - 1)
+                    special["poison_chance"] = 0.3  # 30% chance to poison
+                    special["poison_damage"] = 2  # 2 damage per turn
+                    special["poison_duration"] = 3  # 3 turns
+                    
+                elif enemy_types[enemy_type] == "troll":
+                    # Regenerating brutes
+                    hp = random.randint(35, 50) + (self.dungeon_level - 1) * 8
+                    attack = random.randint(7, 12) + (self.dungeon_level - 1) * 2
+                    defense = random.randint(2, 4) + (self.dungeon_level - 1)
+                    exp = random.randint(25, 40) + (self.dungeon_level - 1) * 3
+                    special["regeneration"] = True
+                    special["regen_amount"] = 3 + self.dungeon_level  # 3-5 HP per turn
+                    
+                elif enemy_types[enemy_type] == "ghost":
+                    # Ethereal and hard to hit
+                    hp = random.randint(20, 30) + (self.dungeon_level - 1) * 3
+                    attack = random.randint(5, 9) + (self.dungeon_level - 1)
+                    defense = random.randint(4, 6) + (self.dungeon_level - 1) + 2  # +2 defense bonus
+                    exp = random.randint(20, 35) + (self.dungeon_level - 1) * 2
+                    special["dodge_chance"] = 0.25  # 25% chance to dodge
+                    special["life_drain"] = 0.5  # 10% of damage heals ghost
+                    
                 enemy = Entity(x, y, enemy_chars[enemy_type], enemy_colors[enemy_type], 
                             enemy_types[enemy_type], hp, attack, defense, exp)
                 if special:
@@ -686,33 +736,63 @@ class Game:
 
 
 
-
-
-
-    def fight(self, enemy):
-        # Player attacks enemy
-        player_damage = self.calculate_damage(self.player, enemy)
+    def handle_special_effects(self, attacker, defender):
+        # Handle poison effects
+        if (hasattr(attacker, 'special') and 'poison_chance' in attacker.special and
+            random.random() < attacker.special['poison_chance'] and
+            defender == self.player):
+            self.player.poisoned = True
+            self.player.poison_damage = attacker.special.get('poison_damage', 1)
+            self.player.poison_duration = attacker.special.get('poison_duration', 2)
+            self.add_message(f"You were poisoned by {attacker.name}!")
+            self.add_to_log(f"Poisoned! {self.player.poison_damage} damage per turn for {self.player.poison_duration} turns")
         
-        # Check for enemy dodge
-        if hasattr(enemy, 'special') and 'dodge_chance' in enemy.special:
-            if random.random() < enemy.special['dodge_chance']:
-                self.add_message(f"{enemy.name} dodged your attack!")
-                self.add_to_log(f"{enemy.name} dodged your attack!")
+        # Handle regeneration
+        if (hasattr(attacker, 'special') and 'regeneration' in attacker.special and
+            attacker != self.player and attacker.alive):
+            regen_amount = attacker.special.get('regen_amount', 1)
+            attacker.hp = min(attacker.max_hp, attacker.hp + regen_amount)
+            self.add_message(f"{attacker.name} regenerates {regen_amount} HP!")
+            self.add_to_log(f"{attacker.name} regenerates {regen_amount} HP")
+        
+        # Handle double attack for goblins
+        if (hasattr(attacker, 'special') and 'double_attack_chance' in attacker.special and
+            random.random() < attacker.special['double_attack_chance'] and
+            attacker != self.player):
+            self.add_message(f"{attacker.name} attacks twice!")
+            self.add_to_log(f"{attacker.name} attacks twice!")
+            return True  # Signal to attack again
+        
+        return False
+
+
+    def fight(self, entity):
+        # Player attacks first
+        player_damage = self.calculate_damage(self.player, entity)
+        
+        # Check for dodge
+        if hasattr(entity, 'special') and 'dodge_chance' in entity.special:
+            if random.random() < entity.special['dodge_chance']:
+                self.add_message(f"{entity.name} dodged your attack!")
+                self.add_to_log(f"{entity.name} dodged your attack!")
             else:
-                enemy.hp -= player_damage
-                self.add_message(f"You hit {enemy.name} for {player_damage} damage!")
-                self.add_to_log(f"You hit {enemy.name} for {player_damage} damage!")
+                entity.hp -= player_damage
+                self.add_message(f"You hit {entity.name} for {player_damage} damage!")
+                self.add_to_log(f"You hit {entity.name} for {player_damage} damage!")
         else:
-            enemy.hp -= player_damage
-            self.add_message(f"You hit {enemy.name} for {player_damage} damage!")
-            self.add_to_log(f"You hit {enemy.name} for {player_damage} damage!")
+            entity.hp -= player_damage
+            self.add_message(f"You hit {entity.name} for {player_damage} damage!")
+            self.add_to_log(f"You hit {entity.name} for {player_damage} damage!")
         
-        if enemy.hp <= 0:
-            enemy.alive = False
-            self.entities.remove(enemy)
-            self.player.exp += enemy.exp
-            self.add_message(f"You defeated {enemy.name}! Gained {enemy.exp} XP.")
-            self.add_to_log(f"You defeated {enemy.name}! Gained {enemy.exp} XP.")
+        # Handle special effects from player's attack
+        self.handle_special_effects(self.player, entity)
+        
+        if entity.hp <= 0:
+            entity.alive = False
+            self.entities.remove(entity)
+            self.player.exp += entity.exp
+            self.add_message(f"You defeated {entity.name}! Gained {entity.exp} XP.")
+            self.add_to_log(f"You defeated {entity.name}! Gained {entity.exp} XP.")
             
             # Check level up
             if self.player.exp >= self.player.next_level:
@@ -721,34 +801,33 @@ class Game:
                 self.add_to_log(level_up_msg)
             
             # Move to enemy's position after defeating it
-            self.player.x, self.player.y = enemy.x, enemy.y
+            self.player.x, self.player.y = entity.x, entity.y
             self.update_fov()
         else:
-            # Enemy attacks player if alive
-            if enemy.alive:
-                # Player gets a chance to dodge
-                player_dodge_chance = 0.1 + (self.player.level * 0.01)  # Base 10% + 1% per level
+            # Enemy attacks if alive
+            if entity.alive:
+                # Check for player dodge
+                player_dodge_chance = 0.1 + (self.player.level * 0.01)
                 if random.random() < player_dodge_chance:
-                    self.add_message(f"You dodged {enemy.name}'s attack!")
-                    self.add_to_log(f"You dodged {enemy.name}'s attack!")
+                    self.add_message(f"You dodged {entity.name}'s attack!")
+                    self.add_to_log(f"You dodged {entity.name}'s attack!")
                 else:
-                    enemy_damage = self.calculate_damage(enemy, self.player)
-                    self.player.hp -= enemy_damage
-                    self.add_message(f"{enemy.name} hits you for {enemy_damage} damage!")
-                    self.add_to_log(f"{enemy.name} hits you for {enemy_damage} damage!")
-                    
-                    # Check for enemy regeneration
-                    if hasattr(enemy, 'special') and 'regeneration' in enemy.special:
-                        regen_amount = random.randint(1, 3)
-                        enemy.hp = min(enemy.max_hp, enemy.hp + regen_amount)
-                        self.add_message(f"{enemy.name} regenerates {regen_amount} HP!")
-                        self.add_to_log(f"{enemy.name} regenerates {regen_amount} HP!")
-                    
-                    if self.player.hp <= 0:
-                        self.player.hp = 0
-                        self.game_state = "game_over"
-                        self.add_message("You have been defeated! Press R to restart")
-                        return True
+                    # Enemy may attack multiple times (goblins)
+                    attack_again = True
+                    while attack_again:
+                        enemy_damage = self.calculate_damage(entity, self.player)
+                        self.player.hp -= enemy_damage
+                        self.add_message(f"{entity.name} hits you for {enemy_damage} damage!")
+                        self.add_to_log(f"{entity.name} hits you for {enemy_damage} damage!")
+                        
+                        # Handle special effects from enemy's attack
+                        attack_again = self.handle_special_effects(entity, self.player)
+                        
+                        if self.player.hp <= 0:
+                            self.player.hp = 0
+                            self.game_state = "game_over"
+                            self.add_message("You have been defeated! Press R to restart")
+                            return True
         
         return False
 
@@ -757,22 +836,58 @@ class Game:
 
 
     def calculate_damage(self, attacker, defender):
-        # Base damage calculation
-        base_damage = max(1, attacker.attack - defender.defense // 2)
+        # Calculate effective defense
+        effective_defense = max(0, defender.defense - getattr(attacker, 'armor_pen', 0))
         
-        # Check for critical hit (player only)
-        if attacker == self.player:
-            if random.random() < self.player.crit_chance:
-                base_damage = int(base_damage * self.player.crit_multiplier)
-                self.add_message("Critical hit!")
-                self.add_to_log("Critical hit!")
+        # Apply accuracy bonus if attacker has it
+        attack_bonus = attacker.special.get("accuracy_bonus", 0) if hasattr(attacker, 'special') else 0
+        base_attack = max(1, attacker.attack + attack_bonus - effective_defense // 2)
         
-        # Add some randomness to damage
-        damage = max(1, base_damage + random.randint(-1, 2))
+        # Critical hits
+        if (attacker == self.player or 
+            (hasattr(attacker, 'special') and 'crit_chance' in attacker.special)):
+            crit_chance = self.player.crit_chance if attacker == self.player else attacker.special['crit_chance']
+            crit_multiplier = self.player.crit_multiplier if attacker == self.player else attacker.special['crit_multiplier']
+            
+            if random.random() < crit_chance:
+                base_attack = int(base_attack * crit_multiplier)
+                if attacker == self.player:
+                    self.add_message("Critical hit!")
+                    self.add_to_log("Critical hit!")
+                else:
+                    self.add_message(f"{attacker.name} lands a critical hit!")
+                    self.add_to_log(f"{attacker.name} lands a critical hit!")
+        
+        # Random variance
+        damage = max(1, base_attack + random.randint(-1, 2))
+        
+        # Handle life drain for ghosts
+        if (hasattr(attacker, 'special') and 'life_drain' in attacker.special and 
+            attacker != self.player and damage > 0):
+            heal_amount = int(damage * attacker.special['life_drain'])
+            attacker.hp = min(attacker.max_hp, attacker.hp + heal_amount)
+            self.add_message(f"{attacker.name} drains {heal_amount} health!")
+            self.add_to_log(f"{attacker.name} drains {heal_amount} health!")
+        
         return damage
 
 
-
+    def handle_poison(self):
+        if self.player.poisoned and self.player.poison_duration > 0:
+            self.player.hp -= self.player.poison_damage
+            self.player.poison_duration -= 1
+            self.add_message(f"You take {self.player.poison_damage} poison damage! ({self.player.poison_duration} turns remaining)")
+            self.add_to_log(f"Poison damage: -{self.player.poison_damage} HP")
+            
+            if self.player.poison_duration <= 0:
+                self.player.poisoned = False
+                self.add_message("The poison has worn off!")
+                self.add_to_log("Poison effect ended")
+            
+            if self.player.hp <= 0:
+                self.player.hp = 0
+                self.game_state = "game_over"
+                self.add_message("You have been defeated by poison! Press R to restart")
 
 
     def pick_up_item(self, item):
@@ -1150,13 +1265,18 @@ class Game:
     def run(self):
         running = True
         self.update_fov()
-
-        # Key repeat delay
         move_delay = 100  # in milliseconds
         last_move_time = 0
+        last_poison_time = 0
+        poison_interval = 1000  # poison damage every second
 
         while running:
             current_time = pygame.time.get_ticks()
+            
+            # Handle poison damage
+            if current_time - last_poison_time >= poison_interval and self.player.poisoned:
+                self.handle_poison()
+                last_poison_time = current_time
             
             for event in pygame.event.get():
                 if event.type == QUIT:
@@ -1165,9 +1285,8 @@ class Game:
                     if event.key == K_q:
                         running = False
                     elif event.key == K_r:
-                        # Create a completely new game instance
-                        game = Game()  # This is the key fix - create new instance
-                        return game.run()  # Start the new game and exit this loop
+                        game = Game()
+                        return game.run()
 
             # Key hold movement (continuous movement)
             if self.game_state == "playing":

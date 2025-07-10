@@ -726,25 +726,31 @@ class Game:
         else:
             # Enemy attacks player if alive
             if enemy.alive:
-                enemy_damage = self.calculate_damage(enemy, self.player)
-                self.player.hp -= enemy_damage
-                self.add_message(f"{enemy.name} hits you for {enemy_damage} damage!")
-                self.add_to_log(f"{enemy.name} hits you for {enemy_damage} damage!")
-                
-                # Check for enemy regeneration
-                if hasattr(enemy, 'special') and 'regeneration' in enemy.special:
-                    regen_amount = random.randint(1, 3)
-                    enemy.hp = min(enemy.max_hp, enemy.hp + regen_amount)
-                    self.add_message(f"{enemy.name} regenerates {regen_amount} HP!")
-                    self.add_to_log(f"{enemy.name} regenerates {regen_amount} HP!")
-                
-                if self.player.hp <= 0:
-                    self.player.hp = 0
-                    self.game_state = "game_over"  # Set game state to game_over
-                    self.add_message("You have been defeated! Press R to restart")
-                    return True
+                # Player gets a chance to dodge
+                player_dodge_chance = 0.1 + (self.player.level * 0.01)  # Base 10% + 1% per level
+                if random.random() < player_dodge_chance:
+                    self.add_message(f"You dodged {enemy.name}'s attack!")
+                    self.add_to_log(f"You dodged {enemy.name}'s attack!")
+                else:
+                    enemy_damage = self.calculate_damage(enemy, self.player)
+                    self.player.hp -= enemy_damage
+                    self.add_message(f"{enemy.name} hits you for {enemy_damage} damage!")
+                    self.add_to_log(f"{enemy.name} hits you for {enemy_damage} damage!")
+                    
+                    # Check for enemy regeneration
+                    if hasattr(enemy, 'special') and 'regeneration' in enemy.special:
+                        regen_amount = random.randint(1, 3)
+                        enemy.hp = min(enemy.max_hp, enemy.hp + regen_amount)
+                        self.add_message(f"{enemy.name} regenerates {regen_amount} HP!")
+                        self.add_to_log(f"{enemy.name} regenerates {regen_amount} HP!")
+                    
+                    if self.player.hp <= 0:
+                        self.player.hp = 0
+                        self.game_state = "game_over"
+                        self.add_message("You have been defeated! Press R to restart")
+                        return True
         
-        return False  # Combat continues
+        return False
 
 
 

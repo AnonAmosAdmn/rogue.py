@@ -44,6 +44,16 @@ pygame.init()
 pygame.font.init()
 
 
+
+# --- Add background music ---
+pygame.mixer.init()
+try:
+    pygame.mixer.music.load("background_music.mp3")  # Place your music file in the same folder
+    pygame.mixer.music.set_volume(0.4)  # Adjust volume as needed
+    pygame.mixer.music.play(-1)  # Loop indefinitely
+except Exception as e:
+    print(f"Could not load background music: {e}")
+    
 # Game settings
 SCREEN_WIDTH, SCREEN_HEIGHT = 2048, 1536
 GRID_SIZE = 64
@@ -197,6 +207,8 @@ class Entity:
         self.exp = exp  # Experience points awarded for killing this entity
         self.alive = True  # Whether the entity is currently alive
         self.sprite = None  # Placeholder for loaded image/sprite
+        self.show_health = False  # Track if health bar should be shown
+        self.health_bar_time = 0  # Track when to hide health bar
 
         # Attempt to load a sprite based on the entity's name
         self.load_sprite()
@@ -233,6 +245,24 @@ class Entity:
                 GRID_SIZE//2 - 2
             )
 
+    def draw_health_bar(self, surface, x, y, width, height):
+        """Draw a health bar above the entity"""
+        # Calculate health ratio
+        health_ratio = self.hp / self.max_hp
+        
+        # Bar dimensions
+        bar_width = width
+        bar_height = max(4, height // 8)  # At least 4px tall
+        
+        # Outline
+        pygame.draw.rect(surface, BLACK, (x-1, y - bar_height - 1, bar_width + 2, bar_height + 2))
+        
+        # Background (missing health)
+        pygame.draw.rect(surface, RED, (x, y - bar_height, bar_width, bar_height))
+        
+        # Foreground (current health)
+        pygame.draw.rect(surface, GREEN, (x, y - bar_height, int(bar_width * health_ratio), bar_height))
+
     def draw(self, surface, x, y, size):
         """Render entity on screen at specified pixel coordinates"""
         if self.sprite:
@@ -242,6 +272,12 @@ class Entity:
             # Fallback to character representation
             text = font_medium.render(self.char, True, self.color)
             surface.blit(text, (x, y))
+        
+        # Draw health bar if needed (for enemies only)
+        if (self.name != "Player" and self.alive and 
+            (self.show_health or pygame.time.get_ticks() - self.health_bar_time < 2000)):
+            self.draw_health_bar(surface, x, y, size, size)
+            self.show_health = False  # Reset after drawing
 
 
 
@@ -769,6 +805,8 @@ class Game:
     def fight(self, entity):
         # Player attacks first
         player_damage = self.calculate_damage(self.player, entity)
+        entity.show_health = True  # Show health bar when attacked
+        entity.health_bar_time = pygame.time.get_ticks()  # Reset timer
         
         # Check for dodge
         if hasattr(entity, 'special') and 'dodge_chance' in entity.special:
@@ -1204,6 +1242,11 @@ class Game:
             dx = entity.x - self.player.x
             dy = entity.y - self.player.y
             distance = max(abs(dx), abs(dy))  # Chebyshev distance (allows diagonal movement)
+            
+            # Show health bar when enemy is close
+            if distance <= 5:  # Show health when within 5 tiles
+                entity.show_health = True
+                entity.health_bar_time = pygame.time.get_ticks()
             
             # Only move if within agro range
             if distance > game.enemy_agro_range:

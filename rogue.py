@@ -37,8 +37,6 @@ GOLD_IMAGE="iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAACXBIWXMAAAsTAAALEwEA
 
 
 
-
-
 # Initialize pygame
 pygame.init()
 pygame.font.init()
@@ -86,7 +84,6 @@ GOLD = (255, 215, 0)
 
 
 
-# Expanded wall colors with more natural stone variations
 WALL_PALETTE = [
     (120, 120, 120),  # Original stone
     (100, 80, 60),    # Brown stone
@@ -103,9 +100,23 @@ WALL_PALETTE = [
     (140, 130, 120),  # Pale stone
     (80, 70, 60),     # Chocolate stone
     (100, 110, 105),  # Green-gray stone
+    (90, 0, 0),       # Dried blood
+    (130, 20, 20),    # Fresh blood
+    (80, 10, 10),     # Rusted iron
+    (100, 0, 30),     # Demon red
+    (60, 0, 20),      # Dark flesh
+    (30, 0, 0),       # Abyss black
+    (120, 30, 30),    # Rotten muscle
+    (140, 50, 50),    # Gore-stained stone
+    (70, 10, 40),     # Shadow meat
+    (110, 0, 0),      # Bloodstone
+    (50, 10, 10),     # Coagulated stone
+    (90, 30, 60),     # Corpse bruise
+    (100, 50, 70),    # Viscera pink
+    (40, 0, 0),       # Dark crimson
 ]
 
-# Expanded floor colors with more texture variations
+
 FLOOR_PALETTE = [
     (50, 50, 50),     # Original dark gray
     (60, 50, 40),     # Brown stone floor
@@ -123,7 +134,20 @@ FLOOR_PALETTE = [
     (80, 70, 60),     # Pebble floor
     (45, 35, 25),     # Dark earth floor
     (65, 75, 85),     # Sky stone floor
+    (20, 0, 0),       # Blood seep
+    (40, 10, 10),     # Crusted blood
+    (60, 20, 30),     # Sinew red
+    (50, 0, 20),      # Death purple
+    (10, 0, 10),      # Void black
+    (30, 10, 10),     # Organ floor
+    (90, 0, 30),      # Fleshy dirt
+    (20, 10, 5),      # Bone dust
+    (35, 15, 25),     # Rotten carpet
+    (50, 20, 30),     # Guts trail
+    (25, 5, 5),       # Sacrifice floor
+    (70, 40, 50),     # Muted entrails
 ]
+
 
 
 
@@ -299,6 +323,10 @@ class Player(Entity):
         self.poisoned = False
         self.poison_damage = 0
         self.poison_duration = 0
+        self.last_direction = "left"  # Default to facing right
+        self.left_sprite = None
+        self.right_sprite = None
+        self.load_sprites()  # Load both sprites
 
     def level_up(self):
         """Increase player stats when leveling up."""
@@ -314,6 +342,26 @@ class Player(Entity):
         
         return f"Level up! You are now level {self.level}! Enemies notice you from farther away!"
 
+    def load_sprites(self):
+        """Load both left and right facing sprites"""
+        try:
+            # Load the base player image (let's assume it faces right by default)
+            base_sprite = load_base64_image(PLAYER_IMAGE)
+            
+            # If original sprite faces left:
+            self.left_sprite = base_sprite  # Original is left-facing
+            self.right_sprite = pygame.transform.flip(base_sprite, True, False)  # Flip to face right
+            
+            # Set initial sprite (default to right)
+            self.sprite = self.right_sprite
+        except Exception as e:
+            print(f"Error loading player sprites: {e}")
+            # Fallback to simple colored circle
+            self.sprite = pygame.Surface((GRID_SIZE, GRID_SIZE))
+            self.sprite.fill(BLACK)
+            pygame.draw.circle(self.sprite, self.color, (GRID_SIZE//2, GRID_SIZE//2), GRID_SIZE//2 - 2)
+            self.left_sprite = self.sprite
+            self.right_sprite = self.sprite
 
 
 
@@ -510,7 +558,7 @@ class Game:
                 # Enemy-specific stats and abilities
                 if enemy_types[enemy_type] == "goblin":
                     # Fast but weak enemies
-                    hp = random.randint(10, 15) + (self.dungeon_level - 1) * 2
+                    hp = random.randint(25, 35) + (self.dungeon_level - 1) * 2
                     attack = random.randint(3, 6) + (self.dungeon_level - 1)
                     defense = random.randint(0, 2) + (self.dungeon_level - 1)
                     exp = random.randint(8, 15) + (self.dungeon_level - 1)
@@ -518,7 +566,7 @@ class Game:
                     
                 elif enemy_types[enemy_type] == "orc":
                     # Strong warriors with critical hits
-                    hp = random.randint(25, 35) + (self.dungeon_level - 1) * 5
+                    hp = random.randint(35, 45) + (self.dungeon_level - 1) * 5
                     attack = random.randint(6, 10) + (self.dungeon_level - 1) * 2 + 5  # +5 attack bonus
                     defense = random.randint(2, 4) + (self.dungeon_level - 1)
                     exp = random.randint(15, 30) + (self.dungeon_level - 1) * 2
@@ -527,7 +575,7 @@ class Game:
                     
                 elif enemy_types[enemy_type] == "skeleton":
                     # Fragile but accurate and dodgy
-                    hp = random.randint(12, 18) + (self.dungeon_level - 1) * 2
+                    hp = random.randint(20, 25) + (self.dungeon_level - 1) * 2
                     attack = random.randint(5, 8) + (self.dungeon_level - 1)
                     defense = random.randint(1, 3) + (self.dungeon_level - 1)
                     exp = random.randint(10, 20) + (self.dungeon_level - 1)
@@ -560,7 +608,7 @@ class Game:
                     defense = random.randint(4, 6) + (self.dungeon_level - 1) + 2  # +2 defense bonus
                     exp = random.randint(20, 35) + (self.dungeon_level - 1) * 2
                     special["dodge_chance"] = 0.25  # 25% chance to dodge
-                    special["life_drain"] = 0.5  # 10% of damage heals ghost
+                    special["life_drain"] = 0.25  # 10% of damage heals ghost
                     
                 enemy = Entity(x, y, enemy_chars[enemy_type], enemy_colors[enemy_type], 
                             enemy_types[enemy_type], hp, attack, defense, exp)
@@ -735,6 +783,14 @@ class Game:
         if new_x < 0 or new_y < 0 or new_x >= self.map_width or new_y >= self.map_height:
             self.add_message("You can't go that way!")
             return
+        
+        # Update facing direction before moving
+        if dx > 0:  # Moving right
+            self.player.last_direction = "right"
+            self.player.sprite = self.player.right_sprite
+        elif dx < 0:  # Moving left
+            self.player.last_direction = "left"
+            self.player.sprite = self.player.left_sprite
         
         # Check walls
         if self.tiles[new_y][new_x].type == 0:
